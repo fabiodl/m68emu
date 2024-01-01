@@ -3,8 +3,7 @@
 #include <stdio.h>
 
 
-
-#define FIXED_PRESCALER 6
+#define FIXED_PRESCALER 7
 
 enum{
   TCR_RESPRE=3,
@@ -21,12 +20,7 @@ enum{ADDR_TIMERDATA=0x0008,
 
 
 void reset_prescaler(M68TMR_CTX* ctx){
-#ifdef FIXED_PRESCALER
-  uint8_t preshift=FIXED_PRESCALER;
-#else
-  uint8_t preshift=ctx->tcr&0x07;
-#endif    
-  ctx->prescaler=(1<<preshift) -1;
+  ctx->prescaler=0;
 }
  
 void tmr_init(M68TMR_CTX* ctx){
@@ -54,22 +48,17 @@ bool tmr_exec(M68TMR_CTX* ctx, uint64_t cycles,bool pin){
     assert(1==2);//not implemented yet
   }
 
-  
-
-  uint8_t n=count>>preshift;
-  if (count>ctx->prescaler){
-    n=1;
+  uint8_t mask=(1<<preshift)-1;
+  if (count+ctx->prescaler>mask){
+    ctx->tdr--;
   }
-  ctx->prescaler=(ctx->prescaler-count)&((1<<preshift) -1);
+  ctx->prescaler=(ctx->prescaler+count)&mask;
 
-  bool interrupt= n>=ctx->tdr;
-  ctx->tdr=(ctx->tdr-n  )&0xFF;
+  bool interrupt= ctx->tdr==0;
   
   if (interrupt){
     ctx->tcr|=1<<TCR_INTREQ;
   }
-  // printf("count %ld prescaler %d tdr %d n%d\n",count,ctx->prescaler,ctx->tdr,n);
-
   
   return interrupt & ( (ctx->tcr& (1<<TCR_INTDIS))==0);
 }
